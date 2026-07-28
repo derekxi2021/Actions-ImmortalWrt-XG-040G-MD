@@ -43,7 +43,8 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      #uses: actions/checkout@main
+      uses: actions/checkout@v4
 
     - name: Initialization environment
       env:
@@ -165,11 +166,33 @@ jobs:
       run: |
         cd openwrt/bin/targets/*/*
         rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+
+        # 创建专门提取发布产物的目录
+        mkdir -p /tmp/release_files
+        
+        # 1. 提取 UBI 固件、sysupgrade 升级包与 factory 包
+        cp -f *ubi* /tmp/release_files/ 2>/dev/null || true
+        cp -f *sysupgrade* /tmp/release_files/ 2>/dev/null || true
+        cp -f *factory* /tmp/release_files/ 2>/dev/null || true
+        
+        # 2. 提取 AN7581 架构自动编译的 Bootloader (U-Boot / FIP / BL2 / ATF 镜像)
+        cp -f *uboot* /tmp/release_files/ 2>/dev/null || true
+        cp -f *fip* /tmp/release_files/ 2>/dev/null || true
+        cp -f *bl2* /tmp/release_files/ 2>/dev/null || true
+        cp -f *atf* /tmp/release_files/ 2>/dev/null || true
+        
+        # 兜底：若提取失败则拷贝所有 bin 文件
+        if [ -z "$(ls -A /tmp/release_files)" ]; then
+          cp -f *.bin /tmp/release_files/ 2>/dev/null || true
+        fi
+
+        echo "FIRMWARE_PATH=/tmp/release_files" >> $GITHUB_ENV
+        #echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware directory
-      uses: actions/upload-artifact@main
+      #uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -184,8 +207,8 @@ jobs:
         echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
-      uses: softprops/action-gh-release@master
       #uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: steps.tag.outputs.status == 'success' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
