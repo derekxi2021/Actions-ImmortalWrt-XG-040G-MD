@@ -169,21 +169,19 @@ jobs:
 
         # 创建专门提取发布产物的目录
         mkdir -p /tmp/release_files
-        
-        # 1. 提取 UBI 固件、sysupgrade 升级包与 factory 包
-        cp -f *ubi* /tmp/release_files/ 2>/dev/null || true
-        cp -f *sysupgrade* /tmp/release_files/ 2>/dev/null || true
-        cp -f *factory* /tmp/release_files/ 2>/dev/null || true
-        
-        # 2. 提取 AN7581 架构自动编译的 Bootloader (U-Boot / FIP / BL2 / ATF 镜像)
-        cp -f *uboot* /tmp/release_files/ 2>/dev/null || true
-        cp -f *fip* /tmp/release_files/ 2>/dev/null || true
-        cp -f *bl2* /tmp/release_files/ 2>/dev/null || true
-        cp -f *atf* /tmp/release_files/ 2>/dev/null || true
-        
-        # 兜底：若提取失败则拷贝所有 bin 文件
+
+        # 1. 复制 bin 目录下的所有编译产物（包含 factory.bin、sysupgrade.bin 等）
+        cp -f *.bin /tmp/release_files/ 2>/dev/null || true
+        cp -f *.tar.gz /tmp/release_files/ 2>/dev/null || true
+        cp -f *.itb /tmp/release_files/ 2>/dev/null || true
+
+        # 2. 【关键】强制从 staging_dir 抓取单独编译好的 U-Boot / FIP / BL2 镜像
+        echo "正在从 staging_dir 提取单独的 U-Boot/FIP 镜像..."
+        find /workdir/openwrt/staging_dir/target-*/image/ -type f \( -name "*u-boot*" -o -name "*fip*" -o -name "*bl2*" -o -name "*chainload*" \) -exec cp -f {} /tmp/release_files/ \; 2>/dev/null || true
+
+        # 3. 兜底：若提取失败则拷贝 bin 目录下所有文件
         if [ -z "$(ls -A /tmp/release_files)" ]; then
-          cp -f *.bin /tmp/release_files/ 2>/dev/null || true
+          cp -f * /tmp/release_files/ 2>/dev/null || true
         fi
 
         echo "FIRMWARE=/tmp/release_files" >> $GITHUB_ENV
